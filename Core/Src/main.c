@@ -103,7 +103,7 @@ int main(void)
   while (1)
   {
 
-	  MyBSP_LED_Blink(LED_BLUE, 250);
+	  MyBSP_LED_Blink(LED_BLUE, 300);
 
     /* USER CODE END WHILE */
 
