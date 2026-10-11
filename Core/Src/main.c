@@ -89,14 +89,10 @@ int main(void)
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
   MyBSP_LED_Init();
-
- /* GPIOA->MODER &= ~(3U << (6 * 2));
-  GPIOA->MODER |= (1U << (6 * 2));
-  GPIOA->BSRR = (1U << 6);*/
   /* USER CODE END 2 */
 
   /* Initialize leds */
- // BSP_LED_Init(LED2);
+  BSP_LED_Init(LED2);
 
   /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
   BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
@@ -107,13 +103,8 @@ int main(void)
   while (1)
   {
 
-	  MyBSP_LED_On(LED_GREEN);
-	  MyBSP_LED_Off(LED_EXT);
-	  HAL_Delay(500);
+	  MyBSP_LED_Blink(LED_BLUE, 250);
 
-	  MyBSP_LED_Off(LED_GREEN);
-	  MyBSP_LED_On(LED_EXT);
-	  HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -193,7 +184,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : USART_TX_Pin USART_RX_Pin */
   GPIO_InitStruct.Pin = USART_TX_Pin|USART_RX_Pin;
@@ -203,8 +194,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA6 */
-  GPIO_InitStruct.Pin = GPIO_PIN_6;
+  /*Configure GPIO pins : PA6 PA7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

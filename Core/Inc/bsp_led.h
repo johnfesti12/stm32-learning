@@ -13,7 +13,8 @@
 /*Публичные идентификаторы светодиодов */
 typedef enum {
 	LED_GREEN = 0, /* LD2, PA5, встроенный */
-	LED_EXT  /* PA6, внешний */
+	LED_EXT, /* PA6, внешний */
+	LED_BLUE = 2
 } BSP_LED_t;
 
 /* Инициализация всех светодиодов */
@@ -27,5 +28,8 @@ void MyBSP_LED_Off(BSP_LED_t led);
 
 /* Переключить светодиод */
 void MyBSP_LED_Toggle(BSP_LED_t led);
+
+/* Мигание светодиодом */
+void MyBSP_LED_Blink(BSP_LED_t led, uint32_t period_ms);
 
 #endif /* INC_BSP_LED_H_ */
