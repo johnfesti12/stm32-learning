@@ -60,3 +60,16 @@ void MyBSP_LED_Blink(BSP_LED_t led, uint32_t period_ms){
 	led_port[led]->BSRR = (led_pin[led] << 16);
 	HAL_Delay(period_ms);
 }
+
+void MyBSP_LED_SetMask(uint16_t mask){
+	for (BSP_LED_t led = LED_GREEN; led <= LED_BLUE; led++)
+	{
+		if(mask & (1U << led)){
+			MyBSP_LED_On(led);
+		}
+		else{
+			MyBSP_LED_Off(led);
+		}
+	}
+}
+

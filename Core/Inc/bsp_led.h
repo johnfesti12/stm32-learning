@@ -32,4 +32,6 @@ void MyBSP_LED_Toggle(BSP_LED_t led);
 /* Мигание светодиодом */
 void MyBSP_LED_Blink(BSP_LED_t led, uint32_t period_ms);
 
+void MyBSP_LED_SetMask(uint16_t mask);
+
 #endif /* INC_BSP_LED_H_ */

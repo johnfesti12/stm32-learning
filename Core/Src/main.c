@@ -102,9 +102,11 @@ int main(void)
 
   while (1)
   {
-
-	  MyBSP_LED_Blink(LED_BLUE, 300);
-
+	  for(uint16_t maska = 1; maska <= 0b100; maska <<= 1){
+	  //MyBSP_LED_Blink(LED_BLUE, 300);
+	  MyBSP_LED_SetMask(maska);
+	  HAL_Delay(250);
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
