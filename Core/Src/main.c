@@ -223,7 +223,13 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void OnButtonPressed(void){
-	MyBSP_LED_Toggle(LED_GREEN);
+	static uint32_t last_press = 0;
+	uint32_t now = HAL_GetTick();
+	if( now - last_press > 50){
+		MyBSP_LED_Toggle(LED_GREEN);
+		last_press = now;
+	}
+
 }
 
 void HAL_EXIT_Callback(EXTI_HandleTypeDef *hexti){
