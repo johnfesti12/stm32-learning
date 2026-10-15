@@ -43,7 +43,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+EXTI_HandleTypeDef H_EXTI_13;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -55,7 +55,7 @@ static void MX_GPIO_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void OnButtonPressed(void);
 /* USER CODE END 0 */
 
 /**
@@ -89,6 +89,9 @@ int main(void)
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
   MyBSP_LED_Init();
+  H_EXTI_13.Line = EXTI_LINE_13;
+  H_EXTI_13.PendingCallback = OnButtonPressed;
+
   /* USER CODE END 2 */
 
   /* Initialize leds */
@@ -102,11 +105,11 @@ int main(void)
 
   while (1)
   {
-	  for(uint16_t maska = 1; maska <= 0b100; maska <<= 1){
+	 /* for(uint16_t maska = 1; maska <= 0b100; maska <<= 1){
 	  //MyBSP_LED_Blink(LED_BLUE, 300);
 	  MyBSP_LED_SetMask(maska);
 	  HAL_Delay(250);
-	  }
+	  }*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -188,6 +191,12 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin : B1_USER_Pin */
+  GPIO_InitStruct.Pin = B1_USER_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(B1_USER_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pins : USART_TX_Pin USART_RX_Pin */
   GPIO_InitStruct.Pin = USART_TX_Pin|USART_RX_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -203,13 +212,25 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
+void OnButtonPressed(void){
+	MyBSP_LED_Toggle(LED_GREEN);
+}
 
+void HAL_EXIT_Callback(EXTI_HandleTypeDef *hexti){
+	if (hexti == &H_EXTI_13){
+		OnButtonPressed();
+	}
+}
 /* USER CODE END 4 */
 
 /**

@@ -50,7 +50,7 @@ void MyBSP_LED_Off (BSP_LED_t led) {
 
 void MyBSP_LED_Toggle (BSP_LED_t led) {
 
-	led_port[led]->ODR ^= (1U << led_pin[led]);
+	led_port[led]->ODR ^= led_pin[led];
 }
 
 void MyBSP_LED_Blink(BSP_LED_t led, uint32_t period_ms){
