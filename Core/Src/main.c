@@ -92,7 +92,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
  // MyBSP_LED_Init();
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
   /* USER CODE END 2 */
 
   /* Initialize leds */
@@ -105,7 +106,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	// Увеличиваем яркость от 0 до 1000
+	/* Breathing LED
+	  // Увеличиваем яркость от 0 до 1000
 	  for (uint16_t pwm = 0; pwm <= 1000; pwm++)
 	{
 		__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm);
@@ -117,7 +119,41 @@ int main(void)
 	{
 	    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm);
 	  	HAL_Delay(1); // Плавное изменение
-	}
+	} */
+
+	  /* Пульсация на LED2
+	  __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1000);
+	 HAL_Delay(75);
+
+	 for (uint16_t pwm = 1000; pwm > 0; pwm -= 2)
+	 	{
+	 	    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm);
+	 	  	HAL_Delay(1); // Плавное изменение
+	 	}*/
+
+	 for (int i = 0; i <= 1000; i += 10) // от 1 ко 2
+	 {
+		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1000 - i);
+		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, i);
+		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 0);
+		 HAL_Delay(5);
+	 }
+
+	 for (int i = 0; i <= 1000; i += 10) // от 2 к 3
+		 {
+			 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 0);
+			 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 1000-i);
+			 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, i);
+			 HAL_Delay(5);
+		 }
+
+	 for (int i = 0; i <= 1000; i += 10) // от 3 к 1
+	 		 {
+	 			 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, i);
+	 			 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 0);
+	 			 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 1000 - i);
+	 			 HAL_Delay(5);
+	 		 }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -227,6 +263,15 @@ static void MX_TIM2_Init(void)
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.Pulse = 0;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
   }
