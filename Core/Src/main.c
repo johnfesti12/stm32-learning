@@ -166,8 +166,6 @@ int main(void)
 
 		 */
 
-		//MyBSP_LED_On(LED_EXT);
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -453,7 +451,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		} else {
 			MyBSP_LED_Off(LED_EXT);
 		}
-		//MyBSP_LED_Toggle(LED_EXT);
 	}
 }
 /* USER CODE END 4 */
