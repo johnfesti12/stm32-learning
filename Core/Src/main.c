@@ -1,20 +1,20 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2026 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -43,14 +43,18 @@
 /* Private variables ---------------------------------------------------------*/
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
-
+uint32_t tick_counter = 0; // счетчик миллисекунд
+uint16_t pwm_value = 0; // Текущая яркость
+uint8_t led_state = 0; // 0 = переход 1->2, 1 = переход 2->3, 2 = переход 3->1
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -88,12 +92,17 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
+  MX_GPIO_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
- // MyBSP_LED_Init();
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+	// MyBSP_LED_Init();
+	// Запускаем ШИМ на всех трёх каналах
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+
+	HAL_TIM_Base_Start_IT(&htim3); // Запускаем TIM3 с прерыванием (тик каждую 1 мс)
   /* USER CODE END 2 */
 
   /* Initialize leds */
@@ -104,60 +113,65 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-	/* Breathing LED
-	  // Увеличиваем яркость от 0 до 1000
-	  for (uint16_t pwm = 0; pwm <= 1000; pwm++)
-	{
-		__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm);
-		HAL_Delay(1); // Плавное изменение
-	}
+	while (1) {
+		/* Breathing LED
+		 // Увеличиваем яркость от 0 до 1000
+		 for (uint16_t pwm = 0; pwm <= 1000; pwm++)
+		 {
+		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm);
+		 HAL_Delay(1); // Плавное изменение
+		 }
 
-	 // Уменьшаем яркость от 0 до 1000
-	  for (uint16_t pwm = 1000; pwm > 0; pwm--)
-	{
-	    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm);
-	  	HAL_Delay(1); // Плавное изменение
-	} */
+		 // Уменьшаем яркость от 0 до 1000
+		 for (uint16_t pwm = 1000; pwm > 0; pwm--)
+		 {
+		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm);
+		 HAL_Delay(1); // Плавное изменение
+		 } */
 
-	  /* Пульсация на LED2
-	  __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1000);
-	 HAL_Delay(75);
+		/* Пульсация на LED2
+		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1000);
+		 HAL_Delay(75);
 
-	 for (uint16_t pwm = 1000; pwm > 0; pwm -= 2)
-	 	{
-	 	    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm);
-	 	  	HAL_Delay(1); // Плавное изменение
-	 	}*/
+		 for (uint16_t pwm = 1000; pwm > 0; pwm -= 2)
+		 {
+		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm);
+		 HAL_Delay(1); // Плавное изменение
+		 }*/
 
-	 for (int i = 0; i <= 1000; i += 10) // от 1 ко 2
-	 {
+		/* Бегущй огонёк
+		 for (int i = 0; i <= 1000; i += 10) // от 1 ко 2
+		 {
 		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1000 - i);
 		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, i);
 		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 0);
 		 HAL_Delay(5);
-	 }
-
-	 for (int i = 0; i <= 1000; i += 10) // от 2 к 3
-		 {
-			 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 0);
-			 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 1000-i);
-			 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, i);
-			 HAL_Delay(5);
 		 }
 
-	 for (int i = 0; i <= 1000; i += 10) // от 3 к 1
-	 		 {
-	 			 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, i);
-	 			 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 0);
-	 			 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 1000 - i);
-	 			 HAL_Delay(5);
-	 		 }
+		 for (int i = 0; i <= 1000; i += 10) // от 2 к 3
+		 {
+		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 0);
+		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 1000-i);
+		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, i);
+		 HAL_Delay(5);
+		 }
+
+		 for (int i = 0; i <= 1000; i += 10) // от 3 к 1
+		 {
+		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, i);
+		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 0);
+		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 1000 - i);
+		 HAL_Delay(5);
+		 }
+
+		 */
+
+		//MyBSP_LED_On(LED_EXT);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+	}
   /* USER CODE END 3 */
 }
 
@@ -282,29 +296,166 @@ static void MX_TIM2_Init(void)
 
 }
 
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 179;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 999;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+
+  /* USER CODE END MX_GPIO_Init_1 */
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOH_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, LED_EXT_Pin|LED_BLUE_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : BUTTON_USER_Pin */
+  GPIO_InitStruct.Pin = BUTTON_USER_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(BUTTON_USER_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : USART_TX_Pin USART_RX_Pin */
+  GPIO_InitStruct.Pin = USART_TX_Pin|USART_RX_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : LED_EXT_Pin LED_BLUE_Pin */
+  GPIO_InitStruct.Pin = LED_EXT_Pin|LED_BLUE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+
+  /* USER CODE END MX_GPIO_Init_2 */
+}
+
 /* USER CODE BEGIN 4 */
 
-/*void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if (htim->Instance == TIM3) {
+		tick_counter++;
+
+		//Каждые 5 миллисекунд (скорость анимации)
+		if (tick_counter >= 5) {
+			tick_counter = 0;
+
+			// Увеличиваем яркость с шагом 10
+			pwm_value += 10;
+			if (pwm_value > 1000)
+				pwm_value = 1000;
+
+			// Логика перетекания
+			if (led_state == 0) //переход 1->2
+					{
+
+				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1000 - pwm_value);
+				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, pwm_value);
+				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 0);
+			} else if (led_state == 1) // переход 2 -> 3
+					{
+				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 0);
+				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 1000 - pwm_value);
+				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, pwm_value);
+			} else if (led_state == 2) //переход 3 -> 1
+					{
+				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm_value);
+				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 0);
+				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 1000 - pwm_value);
+			}
+
+			// Если дошли до максимума, переключаем на следующий переход
+			if (pwm_value >= 1000) {
+				pwm_value = 0;
+				led_state++;
+				if (led_state > 2)
+					led_state = 0;
+			}
+		}
+	}
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 	static uint32_t last_time = 0;
 	uint32_t now = HAL_GetTick();
 
-	if (GPIO_Pin == GPIO_PIN_0 && (now - last_time > 50))
-	{
+	if (GPIO_Pin == BUTTON_USER_Pin && (now - last_time > 50)) {
 		last_time = now;
 	}
 
 
-
 	if (GPIO_Pin == BUTTON_USER_Pin) {
-		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET){
-			MyBSP_LED_On(LED_GREEN);
+		if (HAL_GPIO_ReadPin(BUTTON_USER_GPIO_Port, BUTTON_USER_Pin) == GPIO_PIN_RESET) {
+			MyBSP_LED_On(LED_EXT);
+		} else {
+			MyBSP_LED_Off(LED_EXT);
 		}
-		else {
-			MyBSP_LED_Off(LED_GREEN);
-		}
+		//MyBSP_LED_Toggle(LED_EXT);
 	}
-}*/
+}
 /* USER CODE END 4 */
 
 /**
@@ -314,11 +465,10 @@ static void MX_TIM2_Init(void)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
+	/* User can add his own implementation to report the HAL error return state */
+	__disable_irq();
+	while (1) {
+	}
   /* USER CODE END Error_Handler_Debug */
 }
 #ifdef USE_FULL_ASSERT
