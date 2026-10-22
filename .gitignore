@@ -4,3 +4,4 @@ Release/
 .metadata/
 *.launch
 *.mxproject
+/README.md
