@@ -233,7 +233,16 @@ void TIM3_IRQHandler(void)
 void USART2_IRQHandler(void)
 {
   /* USER CODE BEGIN USART2_IRQn 0 */
+	/*if (USART2->SR & USART_SR_RXNE)
+	{
+		uint8_t data = USART2->DR;
 
+		extern UART_HandleTypeDef huart2;
+		extern uint8_t rx_buffer;
+
+		rx_buffer = data;
+		HAL_UART_RxCpltCallback(&huart2);
+	}*/
   /* USER CODE END USART2_IRQn 0 */
   HAL_UART_IRQHandler(&huart2);
   /* USER CODE BEGIN USART2_IRQn 1 */

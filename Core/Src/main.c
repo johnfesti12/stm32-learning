@@ -51,7 +51,8 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 uint32_t tick_counter = 0; // счетчик миллисекунд
 uint16_t pwm_value = 0; // Текущая яркость
-uint8_t led_state = 0; // 0 = переход 1->2, 1 = переход 2->3, 2 = переход 3->1
+uint8_t led_state = 0;
+uint8_t rx_buffer;// 0 = переход 1->2, 1 = переход 2->3, 2 = переход 3->1
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -117,6 +118,10 @@ int main(void)
 	HAL_TIM_Base_Start_IT(&htim3); // Запускаем TIM3 с прерыванием (тик каждую 1 мс)
 
 	printf("\r\n--- STM32 UART is ready! ---\r\n");
+
+	//Запускаем приём 1 байта в прерывание
+	//uint8_t rx_data;
+	HAL_UART_Receive_IT(&huart2, &rx_buffer, 1);
   /* USER CODE END 2 */
 
   /* Initialize leds */
@@ -431,7 +436,8 @@ void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
 	if (htim->Instance == TIM3) {
 		tick_counter++;
 
@@ -474,7 +480,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	}
 }
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
 
 	static uint32_t last_time = 0;
 	uint32_t now = HAL_GetTick();
@@ -492,6 +499,46 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			printf("Button: RELEASED\r\n");
 			MyBSP_LED_Off(LED_EXT);
 		}
+	}
+}
+
+//uint8_t rx_buffer;
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if (huart->Instance == USART2)
+	{
+
+		//Return symbol
+		HAL_UART_Transmit(&huart2, &rx_buffer, 1, 100);
+
+		// rx_buffer содержит принятый символ
+		if (rx_buffer == '1')
+		{
+			MyBSP_LED_On(LED_EXT);
+			printf("LED ON\r\n");
+		}
+		else if (rx_buffer == '0')
+		{
+			MyBSP_LED_Off(LED_EXT);
+			printf("LED OFF\r\n");
+		}
+		else
+		{
+			printf("Unknown command: %c\r\n", rx_buffer);
+		}
+		// ВАЖНО: снова запускаем приём следующего байта!!!
+		HAL_UART_Receive_IT(&huart2, &rx_buffer, 1);
+	}
+}
+
+void HAL__UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+	if (huart->Instance == USART2)
+	{
+		//Если ошибка - перезапускам приём
+		HAL_UART_Receive_IT(&huart2, &rx_buffer, 1);
+
 	}
 }
 /* USER CODE END 4 */
