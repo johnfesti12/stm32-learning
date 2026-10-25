@@ -201,14 +201,23 @@ int main(void)
 		//Читаем результат (0..4095)
 		uint32_t adc_raw = HAL_ADC_GetValue(&hadc1);
 
-		//Переводим в проценты и вольты
+	/*	//Переводим в проценты и вольты
 		float percent = (adc_raw / 4095.0f) * 100.0f;
-		float voltage = (adc_raw / 4095.0f) * 3.3f;
+		float voltage = (adc_raw / 4095.0f) * 3.3f;*/
 
-		//Выводим в терминал (раз в 500 мс)
-		printf("ADC: %lu | %.1f%% | %.2f V\r\n", adc_raw, percent, voltage);
+		// Переводим в диапазон ШИМ (0..1000)
+		// Формула: (значение / максимум) * целевой_максимум
+		uint16_t pwm_value = (adc_raw * 1000) / 4095;
+
+		// Управляем яркостью светодиода
+		__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1000 - pwm_value);
+
+		//Выводим значение в терминал
+		printf("ADC: %lu | PWM: %u\r\n", adc_raw, 1000-pwm_value);
+		/*//Выводим в терминал (раз в 500 мс)
+		printf("ADC: %lu | %.1f%% | %.2f V\r\n", adc_raw, percent, voltage);*/
 		}
-		HAL_Delay(500);
+		HAL_Delay(100);
 
     /* USER CODE END WHILE */
 
@@ -370,6 +379,10 @@ static void MX_TIM2_Init(void)
   sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
@@ -526,17 +539,17 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			if (led_state == 0) //переход 1->2
 					{
 
-				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1000 - pwm_value);
+				//__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1000 - pwm_value);
 				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, pwm_value);
 				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 0);
 			} else if (led_state == 1) // переход 2 -> 3
 					{
-				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 0);
+				//__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 0);
 				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 1000 - pwm_value);
 				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, pwm_value);
 			} else if (led_state == 2) //переход 3 -> 1
 					{
-				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm_value);
+				//__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm_value);
 				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 0);
 				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 1000 - pwm_value);
 			}
