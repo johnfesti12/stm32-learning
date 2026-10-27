@@ -45,6 +45,8 @@
 
 ADC_HandleTypeDef hadc1;
 
+I2C_HandleTypeDef hi2c1;
+
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 
@@ -63,6 +65,7 @@ static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -77,6 +80,19 @@ int __io_putchar(int ch)
 	return ch;
 }
 #endif
+
+uint8_t Read_Reg(uint16_t DevAddress, uint8_t RegAddress)
+{
+	uint8_t data = 0;
+	// DevAddress уже должен быть сдвинут влево на 1 бит (0x68 << 1)
+	HAL_I2C_Mem_Read(&hi2c1, DevAddress, RegAddress, 1, &data, 1, 100);
+	return data;
+}
+
+void Write_Reg(uint16_t DevAddress, uint8_t RegAddress, uint8_t Data)
+{
+	HAL_I2C_Mem_Write(&hi2c1, DevAddress, RegAddress, 1, &Data, 1, 100);
+}
 /* USER CODE END 0 */
 
 /**
@@ -112,6 +128,7 @@ int main(void)
   MX_TIM3_Init();
   MX_USART2_UART_Init();
   MX_ADC1_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 	// MyBSP_LED_Init();
 	// Запускаем ШИМ на всех трёх каналах
@@ -129,6 +146,19 @@ int main(void)
 
 	//Запускаем АЦП (без прерываний, просто в фоне)
 	HAL_ADC_Start(&hadc1);
+
+	/* Сканер датчика MPU6050 */
+
+	printf("--- I2c Scanner ---\r\n");
+	for (uint8_t addr = 1; addr < 128; addr++)
+	{
+		// Проверяем, отвечает ли датчик на этот адрес
+		if(HAL_I2C_IsDeviceReady(&hi2c1, (addr << 1), 1, 10) == HAL_OK)
+		{
+			printf("Found I2C device at address: 0x%02X\r\n", addr);
+		}
+
+	}
   /* USER CODE END 2 */
 
   /* Initialize leds */
@@ -139,6 +169,12 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+	/* Код чтения с датчика MPU-6050 */
+
+			//1. Будим датчик (пишем 0 в PWM_MGMT_1)
+			Write_Reg(0x68 << 1, 0x6B, 0x00);
+			HAL_Delay(100);
+
 	while (1) {
 		/* Breathing LED
 		 // Увеличиваем яркость от 0 до 1000
@@ -191,6 +227,8 @@ int main(void)
 		 }
 
 		 */
+
+		/*  УПРАВЛЕНИЕ ЯРКОСТЬЮ СВЕТОДИОДА ЧЕРЕЗ ФОТОРЕЗИСТОР С ВЫВОДОМ ЗНАЧЕНИЙ ШИМ В ТЕРМИНАЛ
 		// запускаем новое преобразование (каждый раз!)
 		HAL_ADC_Start(&hadc1);
 
@@ -201,9 +239,9 @@ int main(void)
 		//Читаем результат (0..4095)
 		uint32_t adc_raw = HAL_ADC_GetValue(&hadc1);
 
-	/*	//Переводим в проценты и вольты
+		//Переводим в проценты и вольты
 		float percent = (adc_raw / 4095.0f) * 100.0f;
-		float voltage = (adc_raw / 4095.0f) * 3.3f;*/
+		float voltage = (adc_raw / 4095.0f) * 3.3f;
 
 		// Переводим в диапазон ШИМ (0..1000)
 		// Формула: (значение / максимум) * целевой_максимум
@@ -214,10 +252,35 @@ int main(void)
 
 		//Выводим значение в терминал
 		printf("ADC: %lu | PWM: %u\r\n", adc_raw, 1000-pwm_value);
-		/*//Выводим в терминал (раз в 500 мс)
-		printf("ADC: %lu | %.1f%% | %.2f V\r\n", adc_raw, percent, voltage);*/
+		//Выводим в терминал (раз в 500 мс)
+		printf("ADC: %lu | %.1f%% | %.2f V\r\n", adc_raw, percent, voltage);
 		}
 		HAL_Delay(100);
+		*/
+
+		// Читаем реристр WHO_AM_I (0x75) по адресу 0x68 (сдвинутому влево)
+		//uint8_t who_am_i = Read_Reg(0x68 << 1, 0x75);
+
+		//printf("WHO_AM_I: 0x%02X\r\n", who_am_i);
+		//HAL_Delay(1000);
+
+		/* Код чтения с датчика MPU-6050 */
+
+		uint8_t buffer[6];
+
+		//2. Читаем 6 байт начиная с регистра 0x3B (ACCEL_XOUT_H)
+		//Там лежат данные по X,Y,Z (по 2 байта на ось)
+		HAL_I2C_Mem_Read(&hi2c1, (0x68 << 1), 0x3B, 1, buffer, 6, 100);
+
+		// 3. Склеиваем старший и младший байты для каждой оси
+		int16_t accel_x = (buffer[0] << 8) | buffer[1];
+		int16_t accel_y = (buffer[2] << 8) | buffer[3];
+		int16_t accel_z = (buffer[4] << 8) | buffer[5];
+
+		// 4. Выводим в терминал
+		printf("X: %d | Y: %d | Z; %d\r\n", accel_x, accel_y, accel_z);
+
+		HAL_Delay(200);
 
     /* USER CODE END WHILE */
 
@@ -332,6 +395,40 @@ static void MX_ADC1_Init(void)
 }
 
 /**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
   * @brief TIM2 Initialization Function
   * @param None
   * @retval None
@@ -380,10 +477,6 @@ static void MX_TIM2_Init(void)
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
@@ -497,22 +590,12 @@ void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, LED_EXT_Pin|LED_BLUE_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : BUTTON_USER_Pin */
-  GPIO_InitStruct.Pin = BUTTON_USER_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(BUTTON_USER_GPIO_Port, &GPIO_InitStruct);
-
   /*Configure GPIO pins : LED_EXT_Pin LED_BLUE_Pin */
   GPIO_InitStruct.Pin = LED_EXT_Pin|LED_BLUE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -521,7 +604,7 @@ void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+/*void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim->Instance == TIM3) {
 		tick_counter++;
@@ -563,9 +646,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			}
 		}
 	}
-}
+}*/
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+/*void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 
 	static uint32_t last_time = 0;
@@ -585,11 +668,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			MyBSP_LED_Off(LED_EXT);
 		}
 	}
-}
+}*/
 
 //uint8_t rx_buffer;
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+/*void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if (huart->Instance == USART2)
 	{
@@ -615,7 +698,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		// ВАЖНО: снова запускаем приём следующего байта!!!
 		HAL_UART_Receive_IT(&huart2, &rx_buffer, 1);
 	}
-}
+}*/
 
 void HAL__UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
