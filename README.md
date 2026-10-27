@@ -80,4 +80,4 @@
 - "Снег" по краям экрана - исправил обнулением #define ST7735_XSTART 2
 #define ST7735_YSTART 3 на 0 в st7735.h
 - На экране выводится цветной текст
-![LED TEXT](/HELLO_NUCLEO.JPG)
+![Текст на LED ST7735](/HELLO_NUCLEO.JPG)
