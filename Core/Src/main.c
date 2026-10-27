@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "bsp_led.h"
 #include "stdio.h"
+#include "math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -169,118 +170,58 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-	/* Код чтения с датчика MPU-6050 */
 
-			//1. Будим датчик (пишем 0 в PWM_MGMT_1)
-			Write_Reg(0x68 << 1, 0x6B, 0x00);
-			HAL_Delay(100);
+			//Переменные для фильтра (накопленные суммы)
+			float accel_x_sum = 0, accel_y_sum = 0, accel_z_sum = 0;
+			const int FILTER_SIZE = 10;
 
 	while (1) {
-		/* Breathing LED
-		 // Увеличиваем яркость от 0 до 1000
-		 for (uint16_t pwm = 0; pwm <= 1000; pwm++)
-		 {
-		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm);
-		 HAL_Delay(1); // Плавное изменение
-		 }
 
-		 // Уменьшаем яркость от 0 до 1000
-		 for (uint16_t pwm = 1000; pwm > 0; pwm--)
-		 {
-		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm);
-		 HAL_Delay(1); // Плавное изменение
-		 } */
-
-		/* Пульсация на LED2
-		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1000);
-		 HAL_Delay(75);
-
-		 for (uint16_t pwm = 1000; pwm > 0; pwm -= 2)
-		 {
-		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm);
-		 HAL_Delay(1); // Плавное изменение
-		 }*/
-
-		/* Бегущй огонёк
-		 for (int i = 0; i <= 1000; i += 10) // от 1 ко 2
-		 {
-		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1000 - i);
-		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, i);
-		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 0);
-		 HAL_Delay(5);
-		 }
-
-		 for (int i = 0; i <= 1000; i += 10) // от 2 к 3
-		 {
-		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 0);
-		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 1000-i);
-		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, i);
-		 HAL_Delay(5);
-		 }
-
-		 for (int i = 0; i <= 1000; i += 10) // от 3 к 1
-		 {
-		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, i);
-		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 0);
-		 __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 1000 - i);
-		 HAL_Delay(5);
-		 }
-
-		 */
-
-		/*  УПРАВЛЕНИЕ ЯРКОСТЬЮ СВЕТОДИОДА ЧЕРЕЗ ФОТОРЕЗИСТОР С ВЫВОДОМ ЗНАЧЕНИЙ ШИМ В ТЕРМИНАЛ
-		// запускаем новое преобразование (каждый раз!)
-		HAL_ADC_Start(&hadc1);
-
-		//Ждем окончания (до 100 мс)
-		if (HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK)
-		{
-
-		//Читаем результат (0..4095)
-		uint32_t adc_raw = HAL_ADC_GetValue(&hadc1);
-
-		//Переводим в проценты и вольты
-		float percent = (adc_raw / 4095.0f) * 100.0f;
-		float voltage = (adc_raw / 4095.0f) * 3.3f;
-
-		// Переводим в диапазон ШИМ (0..1000)
-		// Формула: (значение / максимум) * целевой_максимум
-		uint16_t pwm_value = (adc_raw * 1000) / 4095;
-
-		// Управляем яркостью светодиода
-		__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1000 - pwm_value);
-
-		//Выводим значение в терминал
-		printf("ADC: %lu | PWM: %u\r\n", adc_raw, 1000-pwm_value);
-		//Выводим в терминал (раз в 500 мс)
-		printf("ADC: %lu | %.1f%% | %.2f V\r\n", adc_raw, percent, voltage);
-		}
-		HAL_Delay(100);
-		*/
-
-		// Читаем реристр WHO_AM_I (0x75) по адресу 0x68 (сдвинутому влево)
-		//uint8_t who_am_i = Read_Reg(0x68 << 1, 0x75);
-
-		//printf("WHO_AM_I: 0x%02X\r\n", who_am_i);
-		//HAL_Delay(1000);
-
-		/* Код чтения с датчика MPU-6050 */
 
 		uint8_t buffer[6];
 
-		//2. Читаем 6 байт начиная с регистра 0x3B (ACCEL_XOUT_H)
-		//Там лежат данные по X,Y,Z (по 2 байта на ось)
 		HAL_I2C_Mem_Read(&hi2c1, (0x68 << 1), 0x3B, 1, buffer, 6, 100);
 
-		// 3. Склеиваем старший и младший байты для каждой оси
+
 		int16_t accel_x = (buffer[0] << 8) | buffer[1];
 		int16_t accel_y = (buffer[2] << 8) | buffer[3];
 		int16_t accel_z = (buffer[4] << 8) | buffer[5];
 
-		// 4. Выводим в терминал
-		printf("X: %d | Y: %d | Z; %d\r\n", accel_x, accel_y, accel_z);
+		// FILTER (скользящее среднеее)
+		//Добавляем новые значения
+		accel_x_sum += accel_x;
+		accel_y_sum += accel_y;
+		accel_z_sum += accel_z;
 
-		HAL_Delay(200);
+		//Если набрали нужное значение (10) - считаем среднее и выводим
+		static int counter = 0;
+		counter++;
+		if (counter >= FILTER_SIZE)
+		{
+			float avg_x = accel_x_sum / FILTER_SIZE;
+			float avg_y = accel_y_sum / FILTER_SIZE;
+			float avg_z = accel_z_sum / FILTER_SIZE;
+
+
+		//Сбрасываем суммы для следущющего цикла
+		accel_x_sum = 0; accel_y_sum = 0; accel_z_sum = 0;
+		counter = 0;
+
+		/* ПЕРЕВОД В g */
+		float g_x = avg_x / 16384.0f;
+		float g_y = avg_y / 16384.0f;
+		float g_z = avg_z / 16384.0f;
+
+		/* ВЫЧИСЛЕНИЕ УГЛОВ */
+		// atan2 возвращает радианы, переводим в градусы (*180/PI)
+		float roll = atan2(g_y, g_z) * (180.0f / 3.14159265f);
+		float pitch = atan2(-g_x, sqrt(g_y*g_y + g_z*g_z)) * (180.0f / 3.14159265f);
+
+		//Вывод
+
+		printf("Roll: %6.1f | Pitch: %6.1f | (g: %.2f, %.2f, %.2f)\r\n", roll, pitch, g_x, g_y, g_z);
+		}
+		HAL_Delay(10);
 
     /* USER CODE END WHILE */
 
