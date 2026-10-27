@@ -73,6 +73,7 @@ static void MX_I2C1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+#define PI 3.14159265f
 void OnButtonPressed(void);
 #ifdef __GNUC__
 int __io_putchar(int ch)
@@ -170,57 +171,52 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
-			//Переменные для фильтра (накопленные суммы)
-			float accel_x_sum = 0, accel_y_sum = 0, accel_z_sum = 0;
-			const int FILTER_SIZE = 10;
+			float comp_roll = 0.0f;
+			float comp_pitch = 0.0f;
+			uint32_t last_time = HAL_GetTick(); // Запоминаем время для интеграции
 
 	while (1) {
 
 
-		uint8_t buffer[6];
+		uint8_t accel_buf[6];
+		uint8_t gyro_buf[6];
 
-		HAL_I2C_Mem_Read(&hi2c1, (0x68 << 1), 0x3B, 1, buffer, 6, 100);
+		// 1. Читаем акселерометр (адрес 0x3B) и гироскоп (адрес 0x43)
+		HAL_I2C_Mem_Read(&hi2c1, (0x68 << 1), 0x3B, 1, accel_buf, 6, 100);
+		HAL_I2C_Mem_Read(&hi2c1, (0x68 << 1), 0x43, 1, gyro_buf, 6, 100);
 
+		// 2. Склеиваем байты
+		int16_t acc_x = (accel_buf[0] << 8) | accel_buf[1];
+		int16_t acc_y = (accel_buf[2] << 8) | accel_buf[3];
+		int16_t acc_z = (accel_buf[4] << 8) | accel_buf[5];
 
-		int16_t accel_x = (buffer[0] << 8) | buffer[1];
-		int16_t accel_y = (buffer[2] << 8) | buffer[3];
-		int16_t accel_z = (buffer[4] << 8) | buffer[5];
+		int16_t gyr_x = (gyro_buf[0] << 8) | gyro_buf[1];
+		int16_t gyr_y = (gyro_buf[2] << 8) | gyro_buf[3];
 
-		// FILTER (скользящее среднеее)
-		//Добавляем новые значения
-		accel_x_sum += accel_x;
-		accel_y_sum += accel_y;
-		accel_z_sum += accel_z;
+		// 3. Считаем время, прошедшее с прошлого цикла (dt в секундах)
+		uint32_t now = HAL_GetTick();
+		float dt = (now - last_time) / 1000.0f;
+		last_time = now;
 
-		//Если набрали нужное значение (10) - считаем среднее и выводим
-		static int counter = 0;
-		counter++;
-		if (counter >= FILTER_SIZE)
-		{
-			float avg_x = accel_x_sum / FILTER_SIZE;
-			float avg_y = accel_y_sum / FILTER_SIZE;
-			float avg_z = accel_z_sum / FILTER_SIZE;
+		//4. Считаем углы акселерометра
+		float roll_acc = atan2(acc_y / 16384.0f, acc_z / 16384.0f) * (180.0f / PI);
+		float pitch_acc = atan2(-acc_x / 16384.0f, sqrt((acc_y/16384.0f)*(acc_y/16384.0f) + (acc_z/16384.0f)*(acc_z/16384.0f))) * (180.0f / PI);
 
+		//5. Считаем углы гироскопа (интегрируем скорость)
+		//Делим на 131.0 для перевода в °/сек
+		float roll_gyro_rate = gyr_x / 131.0f;
+		float pitch_gyro_rate = gyr_y / 131.0f;
+		float roll_gyro = comp_roll + (roll_gyro_rate * dt);
+		float pitch_gyro = comp_pitch + (pitch_gyro_rate * dt);
 
-		//Сбрасываем суммы для следущющего цикла
-		accel_x_sum = 0; accel_y_sum = 0; accel_z_sum = 0;
-		counter = 0;
-
-		/* ПЕРЕВОД В g */
-		float g_x = avg_x / 16384.0f;
-		float g_y = avg_y / 16384.0f;
-		float g_z = avg_z / 16384.0f;
-
-		/* ВЫЧИСЛЕНИЕ УГЛОВ */
-		// atan2 возвращает радианы, переводим в градусы (*180/PI)
-		float roll = atan2(g_y, g_z) * (180.0f / 3.14159265f);
-		float pitch = atan2(-g_x, sqrt(g_y*g_y + g_z*g_z)) * (180.0f / 3.14159265f);
+		/* КОМПЛЕМЕНТАРНЫЙ ФИЛЬТР (MAGIC!) */
+		// 98% доверия гироскопу (для быстрых движений) и 2% акселерометру (для устранения дрейфа)
+		comp_roll = 0.98f * roll_gyro + 0.02f * roll_acc;
+		comp_pitch = 0.98f * pitch_gyro + 0.02f * pitch_acc;
 
 		//Вывод
+		printf("Roll: %6.1f° | Pitch: %6.1f°\r\n", comp_roll, comp_pitch);
 
-		printf("Roll: %6.1f | Pitch: %6.1f | (g: %.2f, %.2f, %.2f)\r\n", roll, pitch, g_x, g_y, g_z);
-		}
 		HAL_Delay(10);
 
     /* USER CODE END WHILE */
