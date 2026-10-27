@@ -172,21 +172,23 @@ int main(void)
 	ST7735_FillScreen(ST7735_BLACK);
 
 	//Вводим текст
-	ST7735_WriteString(0,0, "Hello Nucleo!", Font_11x18, ST7735_WHITE, ST7735_BLACK);
-	ST7735_WriteString(0,20, "SPI Works!", Font_11x18, ST7735_GREEN, ST7735_BLACK);
+	ST7735_WriteString(0,0, "INCLINOMETER", Font_11x18, ST7735_YELLOW, ST7735_BLACK);
+	ST7735_WriteString(0,30, "Roll:", Font_11x18, ST7735_WHITE, ST7735_BLACK);
+	ST7735_WriteString(0,60, "Pitch:", Font_11x18, ST7735_WHITE, ST7735_BLACK);
   /* USER CODE END 2 */
 
   /* Initialize leds */
-  BSP_LED_Init(LED2);
+  //BSP_LED_Init(LED2);
 
   /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
-  BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
+  //BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 			float comp_roll = 0.0f;
 			float comp_pitch = 0.0f;
 			uint32_t last_time = HAL_GetTick(); // Запоминаем время для интеграции
+			char buf[32]; // Буфер для форматирования текста
 
 	while (1) {
 
@@ -217,20 +219,27 @@ int main(void)
 
 		//5. Считаем углы гироскопа (интегрируем скорость)
 		//Делим на 131.0 для перевода в °/сек
-		float roll_gyro_rate = gyr_x / 131.0f;
-		float pitch_gyro_rate = gyr_y / 131.0f;
-		float roll_gyro = comp_roll + (roll_gyro_rate * dt);
-		float pitch_gyro = comp_pitch + (pitch_gyro_rate * dt);
+		float roll_gyro = comp_roll + ((gyr_x / 131.0f) * dt);
+		float pitch_gyro = comp_pitch + ((gyr_y / 131.0f) * dt);
 
 		/* КОМПЛЕМЕНТАРНЫЙ ФИЛЬТР (MAGIC!) */
 		// 98% доверия гироскопу (для быстрых движений) и 2% акселерометру (для устранения дрейфа)
 		comp_roll = 0.98f * roll_gyro + 0.02f * roll_acc;
 		comp_pitch = 0.98f * pitch_gyro + 0.02f * pitch_acc;
 
-		//Вывод
-		printf("Roll: %6.1f° | Pitch: %6.1f°\r\n", comp_roll, comp_pitch);
+		/* ВЫВОД НА ДИСПЛЕЙ  */
+		// Если угол будет превышать 30°, то строка будет КРАСНОЙ, если нет, то ЗЕЛЕНЫЙ
+		uint16_t color_roll = (fabs(comp_roll) > 30.0f) ? ST7735_RED : ST7735_GREEN;
+		uint16_t color_pitch = (fabs(comp_pitch) > 30.0f) ? ST7735_RED : ST7735_GREEN;
 
-		HAL_Delay(10);
+		// Формируем строку с пробелами в конце, чтобы затирать старые цифры
+		sprintf(buf, "%6.1f ", comp_roll);
+		ST7735_WriteString(60,30, buf, Font_11x18, color_roll, ST7735_BLACK); // 60 - отступ по Х
+
+		sprintf(buf, "%6.1f ", comp_pitch);
+		ST7735_WriteString(75,60, buf, Font_11x18, color_pitch, ST7735_BLACK); // 75 - отступ по Х
+
+		HAL_Delay(20);
 
     /* USER CODE END WHILE */
 
