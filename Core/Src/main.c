@@ -26,6 +26,7 @@
 #include "math.h"
 #include "st7735.h"
 #include "fonts.h"
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -100,6 +101,16 @@ void Write_Reg(uint16_t DevAddress, uint8_t RegAddress, uint8_t Data)
 {
 	HAL_I2C_Mem_Write(&hi2c1, DevAddress, RegAddress, 1, &Data, 1, 100);
 }
+
+void Send_JSON(float roll, float pitch)
+{
+	char json_buffer[64];
+	//Формируем строку. \r\n нужен для окончания строки (Enter)
+	sprintf(json_buffer, "{\"roll\": %.1f, \"pitch\": %.1f}\r\n", roll, pitch);
+	//Отправляем через UART (используется HAL вместо printf из-за быстродейтсвия
+	HAL_UART_Transmit(&huart2, (uint8_t*)json_buffer, strlen(json_buffer), 100);
+
+}
 /* USER CODE END 0 */
 
 /**
@@ -172,9 +183,44 @@ int main(void)
 	ST7735_FillScreen(ST7735_BLACK);
 
 	//Вводим текст
-	ST7735_WriteString(0,0, "INCLINOMETER", Font_11x18, ST7735_YELLOW, ST7735_BLACK);
+	ST7735_WriteString(0,0, "INCLINOMETER", Font_11x18, ST7735_BLUE, ST7735_BLACK);
 	ST7735_WriteString(0,30, "Roll:", Font_11x18, ST7735_WHITE, ST7735_BLACK);
 	ST7735_WriteString(0,60, "Pitch:", Font_11x18, ST7735_WHITE, ST7735_BLACK);
+
+
+	// КАЛИБРОВКА ГИРОСКОПА
+	float gyro_bias_x = 0;
+	float gyro_bias_y = 0;
+	int samples = 500;
+
+	printf("Calibrating gyro... KEEP STILL!\r\n");
+
+	for (int i = 0; i < samples; i++)
+	{
+		uint8_t gyro_buf[6];
+		HAL_I2C_Mem_Read(&hi2c1, (0x68 << 1), 0x43, 1, gyro_buf, 6, 100);
+
+		int16_t raw_x = (gyro_buf[0] << 8) | gyro_buf[1];
+		int16_t raw_y = (gyro_buf[2] << 8) | gyro_buf[3];
+
+		gyro_bias_x += (float)raw_x / 131.0f;
+		gyro_bias_y += (float)raw_y / 131.0f;
+
+		HAL_Delay(2); //Небольшая задержка между замерами
+
+		gyro_bias_x /= samples;
+		gyro_bias_y /= samples;
+
+		printf("Bias X: %.2f, Bias Y: %.2f\r\n", gyro_bias_x, gyro_bias_y);
+		// КОНЕЦ КАЛИБРОВКИ
+
+		// Обнуляем начальные углы
+
+
+
+	}
+
+
   /* USER CODE END 2 */
 
   /* Initialize leds */
@@ -185,10 +231,10 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-			float comp_roll = 0.0f;
-			float comp_pitch = 0.0f;
+			static float comp_roll = 0.0f;
+			static float comp_pitch = 0.0f;
 			uint32_t last_time = HAL_GetTick(); // Запоминаем время для интеграции
-			char buf[32]; // Буфер для форматирования текста
+			//char buf[32]; // Буфер для форматирования текста
 
 	while (1) {
 
@@ -219,15 +265,17 @@ int main(void)
 
 		//5. Считаем углы гироскопа (интегрируем скорость)
 		//Делим на 131.0 для перевода в °/сек
-		float roll_gyro = comp_roll + ((gyr_x / 131.0f) * dt);
-		float pitch_gyro = comp_pitch + ((gyr_y / 131.0f) * dt);
+		float roll_gyro = comp_roll + (((gyr_x / 131.0f) - gyro_bias_x) * dt);
+		float pitch_gyro = comp_pitch + (((gyr_y / 131.0f) - gyro_bias_y) * dt);
 
 		/* КОМПЛЕМЕНТАРНЫЙ ФИЛЬТР (MAGIC!) */
 		// 98% доверия гироскопу (для быстрых движений) и 2% акселерометру (для устранения дрейфа)
-		comp_roll = 0.98f * roll_gyro + 0.02f * roll_acc;
-		comp_pitch = 0.98f * pitch_gyro + 0.02f * pitch_acc;
+		comp_roll = 0.952 * roll_gyro + 0.08f * roll_acc;
+		comp_pitch = 0.95f * pitch_gyro + 0.05f * pitch_acc;
 
-		/* ВЫВОД НА ДИСПЛЕЙ  */
+
+
+	/*	//ВЫВОД НА ДИСПЛЕЙ
 		// Если угол будет превышать 30°, то строка будет КРАСНОЙ, если нет, то ЗЕЛЕНЫЙ
 		uint16_t color_roll = (fabs(comp_roll) > 30.0f) ? ST7735_RED : ST7735_GREEN;
 		uint16_t color_pitch = (fabs(comp_pitch) > 30.0f) ? ST7735_RED : ST7735_GREEN;
@@ -239,6 +287,9 @@ int main(void)
 		sprintf(buf, "%6.1f ", comp_pitch);
 		ST7735_WriteString(75,60, buf, Font_11x18, color_pitch, ST7735_BLACK); // 75 - отступ по Х
 
+		HAL_Delay(20); */
+
+		Send_JSON(comp_roll, comp_pitch);
 		HAL_Delay(20);
 
     /* USER CODE END WHILE */

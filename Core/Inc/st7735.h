@@ -75,14 +75,14 @@ extern SPI_HandleTypeDef ST7735_SPI_PORT;
 */
 
 // WaveShare ST7735S-based 1.8" display, rotate right
-/*
+
 #define ST7735_IS_160X128 1
 #define ST7735_WIDTH  160
 #define ST7735_HEIGHT 128
 #define ST7735_XSTART 1
 #define ST7735_YSTART 2
 #define ST7735_ROTATION (ST7735_MADCTL_MY | ST7735_MADCTL_MV | ST7735_MADCTL_RGB)
-*/
+
 
 // WaveShare ST7735S-based 1.8" display, rotate left
 /*
@@ -105,12 +105,14 @@ extern SPI_HandleTypeDef ST7735_SPI_PORT;
 */
 
 // 1.44" display, default orientation
+/*
 #define ST7735_IS_128X128 1
 #define ST7735_WIDTH  128
-#define ST7735_HEIGHT 160
-#define ST7735_XSTART 0 //2
-#define ST7735_YSTART 0 //3
+#define ST7735_HEIGHT 128
+#define ST7735_XSTART 2
+#define ST7735_YSTART 3
 #define ST7735_ROTATION (ST7735_MADCTL_MX | ST7735_MADCTL_MY | ST7735_MADCTL_BGR)
+*/
 
 // 1.44" display, rotate right
 /*
@@ -223,8 +225,8 @@ extern SPI_HandleTypeDef ST7735_SPI_PORT;
 
 // Color definitions
 #define	ST7735_BLACK   0x0000
-#define	ST7735_BLUE    0xF800
-#define	ST7735_RED     0x001F
+#define	ST7735_BLUE    0x001F
+#define	ST7735_RED     0xF800
 #define	ST7735_GREEN   0x07E0
 #define ST7735_CYAN    0x07FF
 #define ST7735_MAGENTA 0xF81F
