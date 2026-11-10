@@ -62,10 +62,16 @@ void MX_GPIO_Init(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define USER_BUTTON_1_Pin GPIO_PIN_1
+#define USER_BUTTON_1_GPIO_Port GPIOC
+#define USER_BUTTON_1_EXTI_IRQn EXTI1_IRQn
 #define USART_TX_Pin GPIO_PIN_2
 #define USART_TX_GPIO_Port GPIOA
 #define USART_RX_Pin GPIO_PIN_3
 #define USART_RX_GPIO_Port GPIOA
+#define USER_BUTTON_2_Pin GPIO_PIN_4
+#define USER_BUTTON_2_GPIO_Port GPIOA
+#define USER_BUTTON_2_EXTI_IRQn EXTI4_IRQn
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14

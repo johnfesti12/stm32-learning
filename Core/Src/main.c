@@ -63,6 +63,10 @@ uint32_t tick_counter = 0; // счетчик миллисекунд
 uint16_t pwm_value = 0; // Текущая яркость
 uint8_t led_state = 0;
 uint8_t rx_buffer;// 0 = переход 1->2, 1 = переход 2->3, 2 = переход 3->1
+
+uint8_t current_screen = 0; // 0 - углы, 1 - настройка порога
+float alarm_threshold = 30.0f; // По умолчанию угл
+volatile uint8_t button_pressed_flag = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -207,6 +211,7 @@ int main(void)
 		gyro_bias_y += (float)raw_y / 131.0f;
 
 		HAL_Delay(2); //Небольшая задержка между замерами
+	}
 
 		gyro_bias_x /= samples;
 		gyro_bias_y /= samples;
@@ -214,87 +219,106 @@ int main(void)
 		printf("Bias X: %.2f, Bias Y: %.2f\r\n", gyro_bias_x, gyro_bias_y);
 		// КОНЕЦ КАЛИБРОВКИ
 
-		// Обнуляем начальные углы
-
-
-
-	}
-
 
   /* USER CODE END 2 */
 
   /* Initialize leds */
-  //BSP_LED_Init(LED2);
+ // BSP_LED_Init(LED2);
 
   /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
-  //BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
+ // BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 			static float comp_roll = 0.0f;
 			static float comp_pitch = 0.0f;
-			uint32_t last_time = HAL_GetTick(); // Запоминаем время для интеграции
+			//uint32_t last_time = HAL_GetTick(); // Запоминаем время для интеграции
 			//char buf[32]; // Буфер для форматирования текста
 
 	while (1) {
+		/* USER CODE BEGIN WHILE */
+		  static float comp_roll = 0.0f;
+		  static float comp_pitch = 0.0f;
+		  uint32_t last_time = HAL_GetTick();
+		  char buf[32]; // Перенес объявление сюда, чтобы было видно в цикле
+		 // static uint8_t last_screen = 255;
 
+		  while (1)
+		  {
+		    // --- КНОПКА ---
+		   if (button_pressed_flag == 1)
+		   {
+			   	static uint32_t last_time = 0;
+				uint32_t now = HAL_GetTick();
 
-		uint8_t accel_buf[6];
-		uint8_t gyro_buf[6];
+				if (now - last_time > 200)
+				{
+					last_time = now;
+					current_screen++;
+					if (current_screen > 1) current_screen = 0;
 
-		// 1. Читаем акселерометр (адрес 0x3B) и гироскоп (адрес 0x43)
-		HAL_I2C_Mem_Read(&hi2c1, (0x68 << 1), 0x3B, 1, accel_buf, 6, 100);
-		HAL_I2C_Mem_Read(&hi2c1, (0x68 << 1), 0x43, 1, gyro_buf, 6, 100);
+					ST7735_FillScreen(ST7735_BLACK);
+				}
 
-		// 2. Склеиваем байты
-		int16_t acc_x = (accel_buf[0] << 8) | accel_buf[1];
-		int16_t acc_y = (accel_buf[2] << 8) | accel_buf[3];
-		int16_t acc_z = (accel_buf[4] << 8) | accel_buf[5];
+				button_pressed_flag = 0;
+				ST7735_WriteString(0,0, "INCLINOMETER", Font_11x18, ST7735_BLUE, ST7735_BLACK);
+		   }
 
-		int16_t gyr_x = (gyro_buf[0] << 8) | gyro_buf[1];
-		int16_t gyr_y = (gyro_buf[2] << 8) | gyro_buf[3];
+		    // --- ЧТЕНИЕ ДАТЧИКОВ ---
+		    uint8_t accel_buf[6];
+		    uint8_t gyro_buf[6];
+		    HAL_I2C_Mem_Read(&hi2c1, (0x68 << 1), 0x3B, 1, accel_buf, 6, 100);
+		    HAL_I2C_Mem_Read(&hi2c1, (0x68 << 1), 0x43, 1, gyro_buf, 6, 100);
 
-		// 3. Считаем время, прошедшее с прошлого цикла (dt в секундах)
-		uint32_t now = HAL_GetTick();
-		float dt = (now - last_time) / 1000.0f;
-		last_time = now;
+		    int16_t acc_x = (accel_buf[0] << 8) | accel_buf[1];
+		    int16_t acc_y = (accel_buf[2] << 8) | accel_buf[3];
+		    int16_t acc_z = (accel_buf[4] << 8) | accel_buf[5];
 
-		//4. Считаем углы акселерометра
-		float roll_acc = atan2(acc_y / 16384.0f, acc_z / 16384.0f) * (180.0f / PI);
-		float pitch_acc = atan2(-acc_x / 16384.0f, sqrt((acc_y/16384.0f)*(acc_y/16384.0f) + (acc_z/16384.0f)*(acc_z/16384.0f))) * (180.0f / PI);
+		    int16_t gyr_x = (gyro_buf[0] << 8) | gyro_buf[1];
+		    int16_t gyr_y = (gyro_buf[2] << 8) | gyro_buf[3];
 
-		//5. Считаем углы гироскопа (интегрируем скорость)
-		//Делим на 131.0 для перевода в °/сек
-		float roll_gyro = comp_roll + (((gyr_x / 131.0f) - gyro_bias_x) * dt);
-		float pitch_gyro = comp_pitch + (((gyr_y / 131.0f) - gyro_bias_y) * dt);
+		    // --- МАТЕМАТИКА ---
+		    uint32_t now = HAL_GetTick();
+		    float dt = (now - last_time) / 1000.0f;
+		    last_time = now;
 
-		/* КОМПЛЕМЕНТАРНЫЙ ФИЛЬТР (MAGIC!) */
-		// 98% доверия гироскопу (для быстрых движений) и 2% акселерометру (для устранения дрейфа)
-		comp_roll = 0.952 * roll_gyro + 0.08f * roll_acc;
-		comp_pitch = 0.95f * pitch_gyro + 0.05f * pitch_acc;
+		    float roll_acc = atan2(acc_y / 16384.0f, acc_z / 16384.0f) * (180.0f / PI);
+		    float pitch_acc = atan2(-acc_x / 16384.0f, sqrt((acc_y/16384.0f)*(acc_y/16384.0f) + (acc_z/16384.0f)*(acc_z/16384.0f))) * (180.0f / PI);
 
+		    float roll_gyro = comp_roll + (((gyr_x / 131.0f) - gyro_bias_x) * dt);
+		    float pitch_gyro = comp_pitch + (((gyr_y / 131.0f) - gyro_bias_y) * dt);
 
+		    comp_roll = 0.95f * roll_gyro + 0.05f * roll_acc;
+		    comp_pitch = 0.95f * pitch_gyro + 0.05f * pitch_acc;
 
-	/*	//ВЫВОД НА ДИСПЛЕЙ
-		// Если угол будет превышать 30°, то строка будет КРАСНОЙ, если нет, то ЗЕЛЕНЫЙ
-		uint16_t color_roll = (fabs(comp_roll) > 30.0f) ? ST7735_RED : ST7735_GREEN;
-		uint16_t color_pitch = (fabs(comp_pitch) > 30.0f) ? ST7735_RED : ST7735_GREEN;
+		    // --- ВЫВОД НА ЭКРАН ---
+		    if (current_screen == 0)
+		    {
+		        sprintf(buf, "Roll: %6.1f  ", comp_roll);
+		        ST7735_WriteString(0, 30, buf, Font_11x18, ST7735_WHITE, ST7735_BLACK);
+		        sprintf(buf, "Pitch: %6.1f  ", comp_pitch);
+		        ST7735_WriteString(0, 60, buf, Font_11x18, ST7735_WHITE, ST7735_BLACK);
+		    }
+		    else if (current_screen == 1)
+		    {
+		        ST7735_WriteString(0, 30, "Set Alarm:", Font_11x18, ST7735_WHITE, ST7735_BLACK);
+		        sprintf(buf, "  %.0f deg  ", alarm_threshold);
+		        ST7735_WriteString(0, 60, buf, Font_11x18, ST7735_WHITE, ST7735_BLACK);
+		    }
 
-		// Формируем строку с пробелами в конце, чтобы затирать старые цифры
-		sprintf(buf, "%6.1f ", comp_roll);
-		ST7735_WriteString(60,30, buf, Font_11x18, color_roll, ST7735_BLACK); // 60 - отступ по Х
+		    // --- ЗУММЕР ---
+		    if (fabs(comp_roll) > 30.0f || fabs(comp_pitch) > 30.0f) {
+		        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_SET);
+		    } else {
+		        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
+		    }
 
-		sprintf(buf, "%6.1f ", comp_pitch);
-		ST7735_WriteString(75,60, buf, Font_11x18, color_pitch, ST7735_BLACK); // 75 - отступ по Х
-
-		HAL_Delay(20); */
-
-		Send_JSON(comp_roll, comp_pitch);
-		HAL_Delay(20);
-
+		    Send_JSON(comp_roll, comp_pitch);
+		    HAL_Delay(20);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+		  }
 	}
   /* USER CODE END 3 */
 }
@@ -632,10 +656,32 @@ void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8|GPIO_PIN_9, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PC0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : USER_BUTTON_1_Pin */
+  GPIO_InitStruct.Pin = USER_BUTTON_1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(USER_BUTTON_1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : USER_BUTTON_2_Pin */
+  GPIO_InitStruct.Pin = USER_BUTTON_2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(USER_BUTTON_2_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PA8 PA9 */
   GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9;
@@ -650,6 +696,13 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -702,27 +755,13 @@ void MX_GPIO_Init(void)
 	}
 }*/
 
-/*void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-
-	static uint32_t last_time = 0;
-	uint32_t now = HAL_GetTick();
-
-	if (GPIO_Pin == BUTTON_USER_Pin && (now - last_time > 50)) {
-		last_time = now;
+	if (GPIO_Pin == USER_BUTTON_2_Pin)
+	{
+		button_pressed_flag = 1;
 	}
-
-
-	if (GPIO_Pin == BUTTON_USER_Pin) {
-		if (HAL_GPIO_ReadPin(BUTTON_USER_GPIO_Port, BUTTON_USER_Pin) == GPIO_PIN_RESET) {
-			printf("Button: PRESSED\r\n");
-			MyBSP_LED_On(LED_EXT);
-		} else {
-			printf("Button: RELEASED\r\n");
-			MyBSP_LED_Off(LED_EXT);
-		}
-	}
-}*/
+}
 
 //uint8_t rx_buffer;
 

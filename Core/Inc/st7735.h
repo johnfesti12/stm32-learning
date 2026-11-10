@@ -4,6 +4,8 @@
 
 #include "fonts.h"
 #include <stdbool.h>
+#include "stm32f4xx_hal.h"
+#include "main.h"
 
 #define ST7735_MADCTL_MY  0x80
 #define ST7735_MADCTL_MX  0x40
