@@ -59,11 +59,7 @@ TIM_HandleTypeDef htim3;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-uint32_t tick_counter = 0; // счетчик миллисекунд
-uint16_t pwm_value = 0; // Текущая яркость
-uint8_t led_state = 0;
 uint8_t rx_buffer;// 0 = переход 1->2, 1 = переход 2->3, 2 = переход 3->1
-
 uint8_t current_screen = 0; // 0 - углы, 1 - настройка порога
 float alarm_threshold = 30.0f; // По умолчанию угл
 volatile uint8_t button_pressed_flag = 0;
@@ -84,7 +80,6 @@ static void MX_SPI1_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 #define PI 3.14159265f
-void OnButtonPressed(void);
 #ifdef __GNUC__
 int __io_putchar(int ch)
 {
@@ -153,18 +148,8 @@ int main(void)
   MX_I2C1_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-	// MyBSP_LED_Init();
-	// Запускаем ШИМ на всех трёх каналах
-	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
-	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
-
-	HAL_TIM_Base_Start_IT(&htim3); // Запускаем TIM3 с прерыванием (тик каждую 1 мс)
-
 	printf("\r\n--- STM32 UART is ready! ---\r\n");
 
-	//Запускаем приём 1 байта в прерывание
-	//uint8_t rx_data;
 	HAL_UART_Receive_IT(&huart2, &rx_buffer, 1);
 
 	//Запускаем АЦП (без прерываний, просто в фоне)
@@ -710,51 +695,6 @@ void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-/*void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	if (htim->Instance == TIM3) {
-		tick_counter++;
-
-		//Каждые 5 миллисекунд (скорость анимации)
-		if (tick_counter >= 5) {
-			tick_counter = 0;
-
-			// Увеличиваем яркость с шагом 10
-			pwm_value += 10;
-			if (pwm_value > 1000)
-				pwm_value = 1000;
-
-			// Логика перетекания
-			if (led_state == 0) //переход 1->2
-					{
-
-				//__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1000 - pwm_value);
-				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, pwm_value);
-				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 0);
-			} else if (led_state == 1) // переход 2 -> 3
-					{
-				//__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 0);
-				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 1000 - pwm_value);
-				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, pwm_value);
-			} else if (led_state == 2) //переход 3 -> 1
-					{
-				//__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm_value);
-				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 0);
-				__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 1000 - pwm_value);
-			}
-
-			// Если дошли до максимума, переключаем на следующий переход
-			if (pwm_value >= 1000) {
-				pwm_value = 0;
-				led_state++;
-				if (led_state > 2)
-					led_state = 0;
-			}
-		}
-	}
-}*/
-
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if (GPIO_Pin == USER_BUTTON_2_Pin)
@@ -762,36 +702,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		button_pressed_flag = 1;
 	}
 }
-
-//uint8_t rx_buffer;
-
-/*void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-	if (huart->Instance == USART2)
-	{
-
-		//Return symbol
-		HAL_UART_Transmit(&huart2, &rx_buffer, 1, 100);
-
-		// rx_buffer содержит принятый символ
-		if (rx_buffer == '1')
-		{
-			MyBSP_LED_On(LED_EXT);
-			printf("LED ON\r\n");
-		}
-		else if (rx_buffer == '0')
-		{
-			MyBSP_LED_Off(LED_EXT);
-			printf("LED OFF\r\n");
-		}
-		else
-		{
-			printf("Unknown command: %c\r\n", rx_buffer);
-		}
-		// ВАЖНО: снова запускаем приём следующего байта!!!
-		HAL_UART_Receive_IT(&huart2, &rx_buffer, 1);
-	}
-}*/
 
 void HAL__UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
