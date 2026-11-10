@@ -280,9 +280,11 @@ int main(void)
 		    if (current_screen == 0)
 		    {
 		        sprintf(buf, "Roll: %6.1f  ", comp_roll);
-		        ST7735_WriteString(0, 30, buf, Font_11x18, ST7735_WHITE, ST7735_BLACK);
+		        fabs(comp_roll) < 30 ? ST7735_WriteString(0, 30, buf, Font_11x18, ST7735_WHITE, ST7735_BLACK) : ST7735_WriteString(0, 30, buf, Font_11x18, ST7735_RED, ST7735_BLACK);
+
 		        sprintf(buf, "Pitch: %6.1f  ", comp_pitch);
-		        ST7735_WriteString(0, 60, buf, Font_11x18, ST7735_WHITE, ST7735_BLACK);
+		        fabs(comp_pitch) < 30 ? ST7735_WriteString(0, 60, buf, Font_11x18, ST7735_WHITE, ST7735_BLACK) : ST7735_WriteString(0, 60, buf, Font_11x18, ST7735_RED, ST7735_BLACK);
+
 		    }
 		    else if (current_screen == 1)
 		    {
